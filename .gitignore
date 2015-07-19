@@ -28,6 +28,14 @@
 *.x86_64
 *.hex
 
+# Backup
+*.c~
+*.h~
+
+# Build
+build/*
+fractals
+
 # =========================
 # Operating System Files
 # =========================
