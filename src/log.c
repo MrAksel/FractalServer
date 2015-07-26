@@ -9,7 +9,7 @@ int last_errno = 0;
 
 void LOG_h(int priority, char *file, int line, char *format, ...)
 {
-	if ((priority & log_priority_mask) != 0)
+	if (priority & log_priority_mask)
 	{
 		if (priority & PRIO_ERROR)
 		{

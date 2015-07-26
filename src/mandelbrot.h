@@ -16,14 +16,13 @@ struct fractal_params
 struct render_params
 {
 	uint32_t iteration_count;
-	uint32_t interlacing_pass;
 	
 	int32_t width, height;
 	
 	int32_t xOff, xSkip, xMax;
 	int32_t yOff, ySkip, yMax;
 	
-	uint32_t orbit_start;
+	uint32_t orbit_start; // TODO split mandelbrot from buddhabrot
 	uint32_t orbit_length;
 	uint32_t skip_primary_bulbs;
 };

@@ -1,0 +1,28 @@
+﻿- Connect
+ - Remote renderer sends 0x0000DEAF, client can then interpret endianness
+ - Client sends back 0x0000FEED in correct endianness, the rest is "endian-correct"
+ - Client sends four complex coordinates (minre, maxre, minim, maxim)
+   - int for sign of numerator
+   - int for number of bytes in numerator
+   - Count bytes representing the absolute value of the numerator, with least-significant byte first
+   - int for number of bytes in denominator
+   - Count bytes representing the absolute value of the denominator, LSB first
+ - Client sends the rest of the parameters
+   - uint iteration count
+   - int  width, height
+   - int  xOff, xSkip, xMax, yOff, ySkip, yMax
+   - uint orbit start, orbit length
+   - uint bool (true is to use bulb checking to optimize fractal, but exludes some orbits)
+ - Renderer sends back the calculated values
+   - int  row number
+   - For each point x
+     - Iteration count
+	 - Orbit length (number of coordinates following)
+	 - Count complex coordinate pairs (real, imaginary) - that means 2 * count complex coordinates
+	   - int sign of numerator
+	   - ulong count of bytes in numerator
+	   - count bytes representing numerator, LSB
+	   - ulong count bytes of denominator
+	   - count bytes representing denominator, LSB
+
+- Close connection

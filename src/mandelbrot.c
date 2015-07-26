@@ -14,7 +14,7 @@ int calc_mandelbrot(struct fractal_params * fractal, struct render_params * rend
 	{
 		if (!ProcessRow(fractal, render, y))
 		{
-			LOG(PRIO_ERROR | PRIO_CRITICAL, "Canceled on row %d\n", y);
+			LOG(PRIO_ERROR, "Canceled on row %d\n", y);
 			return 0;
 		}
 	}
@@ -27,62 +27,22 @@ int ProcessRow(struct fractal_params * fractal, struct render_params * render, i
 	mp_t im0; mp_init(im0); //Mapped y to imaginary value
 	mp_map(im0, y, 0, render->height, fractal->min_im, fractal->max_im);
 
-	uint32_t *buffer = NULL;
-	int32_t xNum = (render->xMax - render->xOff) / render->xSkip;	// Number of points calculated in this row
-
-	LOG(PRIO_VVERBOSE, "%d points to-be rendered in row %d\n", xNum, y);
-
-	xNum++; // Make room for one int as header;
-
-	if (render->orbit_length == 0)	// Means we're not storing the orbits, create a separate buffer for iterations
+	LOG(PRIO_VVERBOSE, "Rendering x=%d to x=%d\n", render->xOff, render->xMax);
+	
+	// Write row to client
+	if (!network_write(&y, 4, 1))
 	{
-		buffer = malloc(xNum * sizeof(uint32_t));
-
-		if (!buffer) // Failed to allocate buffer 
-		{
-			LOG(PRIO_ERROR | PRIO_HIGH, "Failed to allocate buffer for iteration count at row %d\n", y);
-			int32_t snd = -y - 1;	// -1 means error on row 0
-			network_write(&snd, 4, 1); // Write negated y value, signifies an error at this row
-			return 0;
-		}
-
-		buffer[0] = y;
+		LOG(PRIO_ERROR, "Failed to write to client\n");
+		mp_clear(im0);
+		return 0;
 	}
 
-	LOG(PRIO_VVERBOSE, "Rendering x=%d to x=%d\n", render->xOff, render->xMax);
-	int index = 1;
 	for (int32_t x = render->xOff; x < render->xMax; x += render->xSkip)
 	{
-		uint32_t iter = ProcessPoint(fractal, render, im0, x, y);
-
-		if (iter == 0)
+		if (!ProcessPoint(fractal, render, im0, x, y))
 		{
-			if (buffer)
-				free(buffer);
-
-			LOG(PRIO_ERROR | PRIO_HIGH, "Failed to calculate x=%d y=%d\n", x, y);
-			int32_t snd = -y - 1;				// -1 means error on row 0
-			if (!network_write(&snd, 4, 1)) 	// Write negated y value, signifies an error at this row
-			{
-				LOG(PRIO_ERROR, "Failed to write to client\n");
-				return 0;
-			}
-			return 0; 							// TODO should we just continue with next row? idk..
-		}
-		else if (buffer)
-		{
-			buffer[index++] = iter - 1;
-		}
-	}
-
-	if (buffer)
-	{
-		LOG(PRIO_VERBOSE, "Writing buffer for row %d\n", y);
-		int rcode = network_write(buffer, 4, xNum);
-		free(buffer);
-		if (!rcode)
-		{
-			LOG(PRIO_ERROR, "Failed to write buffer for row %d\n", y);
+			LOG(PRIO_ERROR, "Failed to calculate x=%d y=%d\n", x, y);
+			mp_clear(im0);
 			return 0;
 		}
 	}
@@ -93,6 +53,8 @@ int ProcessRow(struct fractal_params * fractal, struct render_params * render, i
 
 uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * render, mp_t im0, int32_t x, int32_t y)
 {
+	int retcode = 0; // Only set to 1 (success) if not 'goto cleanup'
+
 	mp_t re0; mp_init(re0);
 	mp_map(re0, x, 0, render->width, fractal->min_re, fractal->max_re);
 
@@ -101,24 +63,26 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 	{
 		LOG(PRIO_VVVERBOSE, "Yeah not any work to do!\n");
 		mp_clear(re0);
+
+		int zero = 0;
+		if (!network_write(&zero, 4, 1) || // Iteration count
+			!network_write(&zero, 4, 1))   // Orbit length
+		{
+			LOG(PRIO_ERROR, "Failed to write to client\n");
+			return 0;
+		}
 		return 1;
 	}
 
-	mp_t *real = NULL;
-	mp_t *imag = NULL;
+	mp_t *orbit = NULL;
 	if (render->orbit_length)
 	{
-		real = (mp_t *)malloc(render->orbit_length * sizeof(mp_t));
-		if (real)
-			imag = (mp_t *)malloc(render->orbit_length * sizeof(mp_t));
-		if (!imag)
+		orbit = (mp_t *)malloc(2 * render->orbit_length * sizeof(mp_t));
+		if (!orbit)
 		{
-			if (real)
-				free(real);
-
-			LOG(PRIO_ERROR | PRIO_CRITICAL, "Failed to allocate orbit buffers\n");
+			LOG(PRIO_ERROR, "Failed to allocate orbit buffer\n");
 			mp_clear(re0);
-			return 0; // Failed to allocate either of buffers
+			return 0; 
 		}
 	}
 
@@ -131,16 +95,16 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 
 	mp_t z_re_tmp;	mp_init(z_re_tmp);
 
-	uint32_t iter = 1;
+	uint32_t iter = 0;
 
 	while (iter < render->iteration_count) // Loop while under max count limit
 	{
-		int orbitIndex = iter - 1 - render->orbit_start;
-		if (imag && orbitIndex >= 0 && orbitIndex < render->orbit_length)
+		int orbitIndex = iter - render->orbit_start;
+		if (orbit && orbitIndex >= 0 && orbitIndex < render->orbit_length)
 		{
 			// Store position in orbit array
-			mp_init_set(real[orbitIndex], z_re);
-			mp_init_set(imag[orbitIndex], z_im);
+			mp_init_set(orbit[2 * orbitIndex], z_re);
+			mp_init_set(orbit[2 * orbitIndex + 1], z_im);
 		}
 
 		// Calculate new distance from center
@@ -166,33 +130,39 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		// x = xtemp
 		mp_swap(z_re, z_re_tmp);
 
-		// Increment counter
+		// Increment iteration counter
 		iter++;
 	}
 
-	uint32_t retcode = iter;
-	if (imag) // Send the whole orbit
+	uint32_t ob_count = MIN(render->orbit_length, iter);
+
+	// Send iteration count
+	if (!network_write(&iter, 4, 1)) 
 	{
-		iter--;   // We started counting at 1
+		LOG(PRIO_ERROR, "Failed to write to client\n");
+		goto cleanup;
+	}
 
-		// Send x coord
-		int ierr = network_write(&x, 4, 1);
+	// Send orbit length
+	if (!network_write(&ob_count, 4, 1))
+	{
+		LOG(PRIO_ERROR, "Failed to write to client\n");
+		goto cleanup;
+	}
 
-		// Send number of points
-		uint32_t ob_count = MIN(render->orbit_length, iter);
-		ierr += network_write(&ob_count, 4, 1);
-
-		int tryWrite = (ierr == 2);
+	if (orbit)  // We have stored the orbit
+	{
+		int tryWrite = 1;
 		for (int i = 0; i < ob_count; i++)
 		{
 			if (tryWrite)
 			{
+				// Write rationals to client
 #ifdef MP_FLOATS
 				mpq_t treal, timag;
-				mpq_set_f(treal, real[i]); // Convert to rationals for exporting
-				mpq_set_f(timag, imag[i]); 
+				mpq_set_f(treal, orbit[2 * i]); // Convert to rationals for exporting
+				mpq_set_f(timag, orbit[2 * i + 1]); 
 
-				// Export treal timag
 				int res = network_write_q(treal);
 				if (res)
 				{
@@ -200,40 +170,35 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 				}
 				if (!res)
 				{
-					LOG(PRIO_HIGH | PRIO_ERROR, "Failed to write rationals to client\n");
-					tryWrite = false;
+					LOG(PRIO_ERROR, "Failed to write rationals to client\n");
+					tryWrite = 0;
 				}
 
 				mpq_clear(treal);
 				mpq_clear(timag);
 #else
-				// Export real[i] imag[i]
-				int res = network_write_q(real[i]);
+				int res = network_write_q(orbit[2 * i]);
 				if (res)
 				{
-					res = network_write_q(imag[i]);
+					res = network_write_q(orbit[2 * i + 1]);
 				}
 				if (!res)
 				{
-					LOG(PRIO_HIGH | PRIO_ERROR, "Failed to write rationals to client\n");
-					tryWrite = false;
+					LOG(PRIO_ERROR, "Failed to write rationals to client\n");
+					tryWrite = 0;
 				}
 #endif
 			}
-
-			mp_clear(real[i]);
-			mp_clear(imag[i]);
-		}
-
-		free(real);
-		free(imag);
-
-		if (!tryWrite)
-		{
-			LOG(PRIO_ERROR | PRIO_CRITICAL, "Failed to write orbit\n");
-			retcode = 0; // Failed to write to connection, maybe broken?
+			// Clear even though we don't write them
+			mp_clear(orbit[2 * i]);
+			mp_clear(orbit[2 * i + 1]);
 		}
 	}
+
+	retcode = trywrite;
+cleanup:
+
+	free(orbit);
 
 	mp_clear(re0); // TODO mp_clears
 	mp_clear(z_re);
@@ -275,7 +240,13 @@ int InBulb(mp_t z_re, mp_t z_im)
 
 	if (mp_cmp(ls, rs) < 0)		// Check if inside main bulb..
 	{
-		return 1;
+		mp_clear(z_re_sq);
+		mp_clear(z_im_sq);
+		mp_clear(q);
+		mp_clear(ls);
+		mp_clear(rs);
+		mp_clear(xmq);
+		return 1; // In primary bulb
 	}
 
 	mp_add_r(ls, z_re, 1, 1);	// x+1
@@ -284,13 +255,15 @@ int InBulb(mp_t z_re, mp_t z_im)
 
 	if (mp_cmp_r(ls, 1, 16) < 0)
 	{
-		return 2;
+		return 2; // In secondary bulb
 	}
 
-	mp_clear(q); //TODO mp_clears
-	mp_clear(xmq);
+	mp_clear(z_re_sq); // TODO mp_clears
+	mp_clear(z_im_sq);
+	mp_clear(q);
 	mp_clear(ls);
 	mp_clear(rs);
+	mp_clear(xmq);
 
-	return 0;
+	return 0; // Outside bulbs, iterate as normal
 }

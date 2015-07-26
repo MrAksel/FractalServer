@@ -19,7 +19,7 @@ int main(int argc, char** argv)
 
 	if (!parse_args(argc, argv))
 	{
-		LOG(PRIO_ERROR | PRIO_CRITICAL, "Failed initializing socket\n");
+		LOG(PRIO_ERROR | PRIO_CRITICAL, "Failed parsing arguments\n");
 		exit(1);
 	}
 	if (!network_init())
@@ -34,13 +34,16 @@ int main(int argc, char** argv)
 	};
 	sigaction(SIGCHLD, &sigchld_action, NULL);	// Prevent spawning of child zombies
 
+	int errors_c = 0;
 	while (1)
 	{
 		LOG(PRIO_INFO, "Waiting for inbound connection\n");
 		if (!network_accept())
 		{
 			LOG(PRIO_ERROR, "Failed to accept client\n");
-			continue;
+			errors_c++;
+			if (errors_c == 10) break;
+			else				continue;
 		}
 
 		pid_t darkside = fork();
@@ -54,6 +57,14 @@ int main(int argc, char** argv)
 
 			LOG(PRIO_INFO, "Forked\n");
 
+			uint32_t magic = 0xDEAF;
+			if (!network_write(&magic, 4, 1))
+				network_quit();
+
+			if (!network_read(&magic, 4, 1) ||
+				magic != 0xFEED)
+				network_quit();
+
 			struct fractal_params fractal;
 			if (!network_read_mp(&fractal))
 				network_quit();
@@ -64,7 +75,7 @@ int main(int argc, char** argv)
 			if (!network_read(&param, sizeof(param), 1))
 				network_quit();
 
-			/*
+			/* Sample values
 			param.iteration_count	= 1000;
 			param.interlacing_pass	= 1;
 			param.width		= 320;
@@ -83,7 +94,7 @@ int main(int argc, char** argv)
 			LOG(PRIO_VERBOSE, "Initialized render params\n");
 
 			if (!calc_mandelbrot(&fractal, &param))
-				LOG(PRIO_INFO, "Task failed\n");
+				LOG(PRIO_ERROR, "Task failed\n");
 
 			LOG(PRIO_INFO, "Done\n");
 			network_finish();

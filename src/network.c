@@ -30,7 +30,7 @@ int network_init()
 	
 	int enable = 1;
 	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
-	    LOG(PRIO_ERROR | PRIO_HIGH, "setsockopt(SO_REUSEADDR) failed\n");
+	    LOG(PRIO_ERROR, "setsockopt(SO_REUSEADDR) failed\n");
     
 	if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == -1)
 	{
@@ -76,16 +76,16 @@ size_t network_read(void *buffer, size_t size, size_t count)
 		br += n;		
 		if (n == 0)
 		{
-			LOG(PRIO_ERROR | PRIO_HIGH, "Read zero bytes (%d/%d)\n", br, btot);
+			LOG(PRIO_ERROR, "Read zero bytes (%d/%d)\n", br, btot);
 			return 0;
 		}
 		else if(n < 0)
 		{
-			LOG(PRIO_ERROR | PRIO_HIGH, "Read error (%d/%d)\n", br, btot);
+			LOG(PRIO_ERROR, "Read error (%d/%d)\n", br, btot);
 			return 0;
 		}
 	}
-	return br;
+	return br / size;
 }
 
 size_t network_write(void *buffer, size_t size, size_t count)
@@ -99,40 +99,75 @@ size_t network_write(void *buffer, size_t size, size_t count)
 		bw += n;		
 		if (n < 1)
 		{
-			LOG(PRIO_ERROR | PRIO_HIGH, "Wrote zero bytes (%d/%d)\n", bw, btot);
+			LOG(PRIO_ERROR, "Wrote zero bytes (%d/%d)\n", bw, btot);
 			return 0;
 		}
 		else if(n < 0)
 		{
-			LOG(PRIO_ERROR | PRIO_HIGH, "Write error (%d/%d)\n", bw, btot);
+			LOG(PRIO_ERROR, "Write error (%d/%d)\n", bw, btot);
 			return 0;
 		}
 	}
-	return bw;
+	return bw / size;
 }
 
 size_t network_write_q(mpq_t *q)
 {
 	size_t totcount = 0;
-
 	size_t count = 0;
+	uint64_t s_count;
+
+	int32_t sign = mpz_sign(mpq_numref(*q));
+
 	unsigned char *buff = NULL;
 
 	mpz_export(buff, &count, -1, 1, 0, 0, mpq_numref(*q));
-
-	if (!network_write(buff, count, 1))
+		
+	// Write sign
+	if (!network_write(&sign, 4, 1)) 
+	{
+		free(buff);
 		return 0;
+	}
+	totcount += 4;
 
+	s_count = count; 
+	// Write size of buffer as ulong
+	if (!network_write(&s_count, 8, 1))
+	{
+		free(buff);
+		return 0;
+	}
+	totcount += 8;
+
+	// Write actual buffer with values
+	if (!network_write(buff, 1, count))
+	{
+		free(buff);
+		return 0;
+	}
 	totcount += count;
-
 	free(buff); buff = NULL;
 
 	mpz_export(buff, &count, -1, 1, 0, 0, mpq_denref(*q));
 
-	if (!network_write(buff, count, 1))
+	s_count = count;
+	// Write size of buffer as ulong
+	if (!network_write(&s_count, 8, 1))
+	{
+		free(buff);
 		return 0;
+	}
+	totcount += 8;
 
+	if (!network_write(buff, count, 1))
+	{
+		free(buff);
+		return 0;
+	}
 	totcount += count;
+	free(buff);
+
 	return totcount;
 }
 
@@ -151,13 +186,13 @@ size_t network_read_mp(struct fractal_params *fractal)
 		err &= network_read(&count, 4, 1);
 		if (!err)
 		{
-			LOG(PRIO_ERROR | PRIO_HIGH, "Failed to read rationals\n");
+			LOG(PRIO_ERROR, "Failed to read rationals\n");
 			return 0;
 		}
 		buff = malloc(count);
 		if (!buff)
 		{
-			LOG(PRIO_ERROR | PRIO_HIGH, "Failed to allocate buffer\n");
+			LOG(PRIO_ERROR, "Failed to allocate buffer\n");
 			return 0;
 		}
 		if (network_read(buff, 1, count) != count)
@@ -175,13 +210,13 @@ size_t network_read_mp(struct fractal_params *fractal)
 		err = network_read(&count, 4, 1);
 		if (!err)
 		{
-			LOG(PRIO_ERROR | PRIO_HIGH, "Failed to read rationals\n");
+			LOG(PRIO_ERROR, "Failed to read rationals\n");
 			return 0;
 		}
 		buff = malloc(count);
 		if (!buff)
 		{
-			LOG(PRIO_ERROR | PRIO_HIGH, "Failed to allocate buffer\n");
+			LOG(PRIO_ERROR, "Failed to allocate buffer\n");
 			return 0;
 		}
 		if (network_read(buff, 1, count) != count)
@@ -227,7 +262,7 @@ void network_finish()
 		if (res < 0)
 		{
 			LOG(PRIO_ERROR, "Unexpected error during network shutdown\n");
-			exit(1);
+			return;
 		}
 		if (res == 0) // Loop until res == 0
 			break;
@@ -241,7 +276,7 @@ void network_close()
 
 void network_quit_h(char *file, int line)
 {
-	LOG_h(PRIO_ERROR | PRIO_CRITICAL, file, line, "Called network_quit\n");
+	LOG_h(PRIO_ERROR, file, line, "Called network_quit\n");
 	network_close();
 	LOG(PRIO_INFO, "Child exiting\n");
 	exit(1);
