@@ -115,7 +115,7 @@ size_t network_write_q(mpq_t *q)
 {
 	size_t totcount = 0;
 	size_t count = 0;
-	uint64_t s_count;
+	int64_t s_count;
 
 	int32_t sign = mpz_sign(mpq_numref(*q));
 
@@ -131,8 +131,8 @@ size_t network_write_q(mpq_t *q)
 	}
 	totcount += 4;
 
-	s_count = count; 
-	// Write size of buffer as ulong
+	s_count = (int64_t)count; 
+	// Write size of buffer as long
 	if (!network_write(&s_count, 8, 1))
 	{
 		free(buff);
@@ -151,8 +151,8 @@ size_t network_write_q(mpq_t *q)
 
 	mpz_export(buff, &count, -1, 1, 0, 0, mpq_denref(*q));
 
-	s_count = count;
-	// Write size of buffer as ulong
+	s_count = (int64_t)count;
+	// Write size of buffer as long
 	if (!network_write(&s_count, 8, 1))
 	{
 		free(buff);

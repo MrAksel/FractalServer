@@ -29,8 +29,11 @@ int ProcessRow(struct fractal_params * fractal, struct render_params * render, i
 
 	LOG(PRIO_VVERBOSE, "Rendering x=%d to x=%d\n", render->xOff, render->xMax);
 	
+	int xnum = (render->xMax - render->xOff) / render->xSkip;
+
 	// Write row to client
-	if (!network_write(&y, 4, 1))
+	if (!network_write(&y, 4, 1) ||
+	    !network_write(&xnum, 4, 1))
 	{
 		LOG(PRIO_ERROR, "Failed to write to client\n");
 		mp_clear(im0);
