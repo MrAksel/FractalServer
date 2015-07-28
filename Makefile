@@ -1,4 +1,4 @@
-CC      := cc
+CC      := clang
 PKGS	:= 
 CFLAGS  := -std=gnu99 -g -O0 -Wall -DMP_FLOATS	# `pkg-config --cflags $(PKGS)`
 LIBS    := -lgmp								# `pkg-config --libs $(PKGS)` 

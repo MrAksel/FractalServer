@@ -153,9 +153,10 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		goto cleanup;
 	}
 
+
+	int tryWrite = 1; 
 	if (orbit)  // We have stored the orbit
 	{
-		int tryWrite = 1;
 		for (int i = 0; i < ob_count; i++)
 		{
 			if (tryWrite)
@@ -166,10 +167,10 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 				mpq_set_f(treal, orbit[2 * i]); // Convert to rationals for exporting
 				mpq_set_f(timag, orbit[2 * i + 1]); 
 
-				int res = network_write_q(treal);
+				int res = network_write_q(&treal);
 				if (res)
 				{
-					res = network_write_q(timag);
+					res = network_write_q(&timag);
 				}
 				if (!res)
 				{
@@ -180,10 +181,10 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 				mpq_clear(treal);
 				mpq_clear(timag);
 #else
-				int res = network_write_q(orbit[2 * i]);
+				int res = network_write_q(&orbit[2 * i]);
 				if (res)
 				{
-					res = network_write_q(orbit[2 * i + 1]);
+					res = network_write_q(&orbit[2 * i + 1]);
 				}
 				if (!res)
 				{
@@ -198,7 +199,7 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		}
 	}
 
-	retcode = trywrite;
+	retcode = tryWrite;
 cleanup:
 
 	free(orbit);

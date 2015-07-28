@@ -117,7 +117,7 @@ size_t network_write_q(mpq_t *q)
 	size_t count = 0;
 	int64_t s_count;
 
-	int32_t sign = mpz_sign(mpq_numref(*q));
+	int32_t sign = mpz_sgn(mpq_numref(*q));
 
 	unsigned char *buff = NULL;
 
@@ -179,12 +179,11 @@ size_t network_read_mp(struct fractal_params *fractal)
 	for (int i = 0; i < 4; i++)
 	{
 		unsigned char *buff;
-		int32_t sign, count, err;
+		int32_t sign, count;
 
 		//Read numerator
-		err |= network_read(&sign, 4, 1);
-		err &= network_read(&count, 4, 1);
-		if (!err)
+		if (!network_read(&sign, 4, 1) ||
+			!network_read(&count, 4, 1))
 		{
 			LOG(PRIO_ERROR, "Failed to read rationals\n");
 			return 0;
@@ -207,8 +206,7 @@ size_t network_read_mp(struct fractal_params *fractal)
 		free(buff); buff = NULL;
 
 		//Read denominator
-		err = network_read(&count, 4, 1);
-		if (!err)
+		if (!network_read(&count, 4, 1))
 		{
 			LOG(PRIO_ERROR, "Failed to read rationals\n");
 			return 0;
