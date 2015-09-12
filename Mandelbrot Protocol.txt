@@ -12,7 +12,8 @@
    - int  width, height
    - int  xOff, xSkip, xMax, yOff, ySkip, yMax
    - uint orbit start, orbit length
-   - uint bool (true is to use bulb checking to optimize fractal, but exludes some orbits)
+   - uint bool (1 is to use bulb checking to optimize fractal, but exludes some orbits, 0 calculates everything)
+ - Renderer sends 200 (decimal, OK)
  - Renderer sends back the calculated values
    - int  row number
    - int  number of points (width)
@@ -22,8 +23,8 @@
 	 - Count complex coordinates (real, imaginary) - that means 2 * count rational numbers
 	   - int sign of numerator
 	   - long count of bytes in numerator
-	   - count bytes representing numerator, LSB
+	   - count bytes representing absolute value of numerator, LSB
 	   - long count bytes of denominator
-	   - count bytes representing denominator, LSB
+	   - count bytes representing abs denominator, LSB
 
 - Close connection

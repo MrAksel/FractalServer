@@ -69,7 +69,7 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 
 		int zero = 0;
 		if (!network_write(&zero, 4, 1) || // Iteration count
-			!network_write(&zero, 4, 1))   // Orbit length
+		    !network_write(&zero, 4, 1))   // Orbit length
 		{
 			LOG(PRIO_ERROR, "Failed to write to client\n");
 			return 0;
@@ -127,7 +127,7 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 
 		// y = 2*x*y + y0
 		mp_mul(z_im, z_re, z_im);	//x*y
-		mp_mul_r(z_im, z_im, 2, 1);	//x*y*2
+		mp_mul_si(z_im, z_im, 2);	//x*y*2
 		mp_add(z_im, z_im, im0);		//x*y*2 + y0
 
 		// x = xtemp
@@ -139,15 +139,9 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 
 	uint32_t ob_count = MIN(render->orbit_length, iter);
 
-	// Send iteration count
-	if (!network_write(&iter, 4, 1)) 
-	{
-		LOG(PRIO_ERROR, "Failed to write to client\n");
-		goto cleanup;
-	}
-
-	// Send orbit length
-	if (!network_write(&ob_count, 4, 1))
+	// Send iteration count & orbit length
+	if (!network_write(&iter, 4, 1) ||
+	    !network_write(&ob_count, 4, 1)) 
 	{
 		LOG(PRIO_ERROR, "Failed to write to client\n");
 		goto cleanup;
@@ -157,13 +151,15 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 	int tryWrite = 1; 
 	if (orbit)  // We have stored the orbit
 	{
-		for (int i = 0; i < ob_count; i++)
+		for (uint32_t i = 0; i < ob_count; i++)
 		{
 			if (tryWrite)
 			{
 				// Write rationals to client
 #ifdef MP_FLOATS
 				mpq_t treal, timag;
+				mpq_inits(treal, timag, NULL);
+
 				mpq_set_f(treal, orbit[2 * i]); // Convert to rationals for exporting
 				mpq_set_f(timag, orbit[2 * i + 1]); 
 

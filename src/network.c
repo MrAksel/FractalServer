@@ -118,19 +118,18 @@ size_t network_write_q(mpq_t *q)
 	int64_t s_count;
 
 	int32_t sign = mpz_sgn(mpq_numref(*q));
-
-	unsigned char *buff = NULL;
-
-	mpz_export(buff, &count, -1, 1, 0, 0, mpq_numref(*q));
-		
+	
 	// Write sign
 	if (!network_write(&sign, 4, 1)) 
 	{
-		free(buff);
 		return 0;
 	}
 	totcount += 4;
 
+	unsigned char *buff = NULL;
+
+	mpz_export(buff, &count, -1, 1, 0, 0, mpq_numref(*q));
+	
 	s_count = (int64_t)count; 
 	// Write size of buffer as long
 	if (!network_write(&s_count, 8, 1))
@@ -141,7 +140,7 @@ size_t network_write_q(mpq_t *q)
 	totcount += 8;
 
 	// Write actual buffer with values
-	if (!network_write(buff, 1, count))
+	if (network_write(buff, 1, count) != count)
 	{
 		free(buff);
 		return 0;
@@ -160,7 +159,7 @@ size_t network_write_q(mpq_t *q)
 	}
 	totcount += 8;
 
-	if (!network_write(buff, count, 1))
+	if (network_write(buff, 1, count) != count)
 	{
 		free(buff);
 		return 0;
@@ -227,17 +226,10 @@ size_t network_read_mp(struct fractal_params *fractal)
 		free(buff); buff = NULL;
 	}
 
-#ifdef MP_RATIONALS
-	mp_init_set(fractal->min_re, vals[0]);
-	mp_init_set(fractal->max_re, vals[1]);
-	mp_init_set(fractal->min_im, vals[2]);
-	mp_init_set(fractal->max_im, vals[3]);
-#else
-	mpf_set_q(fractal->min_re, vals[0]);
-	mpf_set_q(fractal->max_re, vals[1]);
-	mpf_set_q(fractal->min_im, vals[2]);
-	mpf_set_q(fractal->max_im, vals[3]);
-#endif
+	mp_init_set_q(fractal->min_re, vals[0]);
+	mp_init_set_q(fractal->max_re, vals[1]);
+	mp_init_set_q(fractal->min_im, vals[2]);
+	mp_init_set_q(fractal->max_im, vals[3]);
 
 	mpq_clears(vals[0], vals[1], vals[2], vals[3], NULL);
 

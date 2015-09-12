@@ -1,11 +1,18 @@
 #include "mp.h"
 
 #ifdef MP_RATIONALS
-void mpq_init_set(mpq_t rop, mpq_t op)
+void mpq_init_set_q(mpq_t rop, mpq_t op)
 {
 	mpq_init(rop);
-	mpz_set(mpq_numref(rop), mpq_numref(op)); //Set numerator
-	mpz_set(mpq_denref(rop), mpq_denref(op)); //Set denominator
+	mpq_set(rop, op);
+	// mpz_set(mpq_numref(rop), mpq_numref(op)); //Set numerator
+	// mpz_set(mpq_denref(rop), mpq_denref(op)); //Set denominator
+}
+
+void mpq_init_set_f(mpq_t rop, mpf_t op)
+{
+	mpq_init(rop);
+	mpq_set_f(rop, op);
 }
 
 void mpq_init_set_r(mpq_t rop, signed long int num2, signed long int den2)
@@ -69,6 +76,18 @@ void mpq_div_si(mpq_t rop, mpf_t op1, signed long int op2)
 
 
 #else
+
+
+void mpf_init_set_q(mpf_t rop, mpq_t op)
+{
+	mpf_init(rop);
+	mpf_set_q(rop, op);
+}
+
+void mpf_init_set_f(mpf_t rop, mpf_t op)
+{
+	mpf_init_set(rop, op);
+}
 
 void mpf_init_set_r(mpf_t rop, signed long int num2, signed long int den2)
 {

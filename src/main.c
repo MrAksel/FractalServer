@@ -92,6 +92,10 @@ int main(int argc, char** argv)
 			*/
 
 			LOG(PRIO_VERBOSE, "Initialized render params\n");
+			
+			int ok = 200;
+			if (!network_write(&ok, 4, 1))
+				network_quit();
 
 			if (!calc_mandelbrot(&fractal, &param))
 				LOG(PRIO_ERROR, "Task failed\n");
