@@ -5,7 +5,9 @@
 	#define MP_FLOATS
 #endif
 #else
+#ifdef MP_FLOATS
 	#undef MP_FLOATS
+#endif
 #endif
 
 #ifdef MP_RATIONALS

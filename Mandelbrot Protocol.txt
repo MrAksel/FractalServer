@@ -14,17 +14,20 @@
    - uint orbit start, orbit length
    - uint bool (1 is to use bulb checking to optimize fractal, but exludes some orbits, 0 calculates everything)
  - Renderer sends 200 (decimal, OK)
- - Renderer sends back the calculated values
-   - int  row number
-   - int  number of points (width)
-   - For each point x
+ - Renderer sends back calculated values
+ - int number (>=0) of orbits to expect, or a negative number to signify end of transmission (skip next part)
+   - For each orbit
+     - int x, y, if applicable (for mandelbrot, not neccesarily buddhabrot), (-1, -1) if not
+     - A complex coordinate (start of the orbit, 'c' in the equation)
      - uint iteration count
-	 - uint orbit length (number of coordinates following)
-	 - Count complex coordinates (real, imaginary) - that means 2 * count rational numbers
-	   - int sign of numerator
-	   - long count of bytes in numerator
-	   - count bytes representing absolute value of numerator, LSB
-	   - long count bytes of denominator
-	   - count bytes representing abs denominator, LSB
+     - uint orbit start (offset before reporting orbits)
+     - uint orbit length (number of coordinates following)
+       - Count complex coordinates (real, imaginary) - that means 2 * count rational numbers
+       - int sign of numerator
+       - long count of bytes in numerator
+       - count bytes representing absolute value of numerator, LSB
+       - long count bytes of denominator
+       - count bytes representing abs denominator, LSB
+ - Repeat last step until remote sends 0 orbits
 
 - Close connection

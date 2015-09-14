@@ -18,7 +18,11 @@ int calc_mandelbrot(struct fractal_params * fractal, struct render_params * rend
 			return 0;
 		}
 	}
-
+	
+	int32_t finito = -1; // Send a negative number to signify no more orbits for client
+	if (!network_write(&finito, 4, 1))
+		return 0;
+		
 	return 1;
 }
 
@@ -28,18 +32,6 @@ int ProcessRow(struct fractal_params * fractal, struct render_params * render, i
 	mp_map(im0, y, 0, render->height, fractal->min_im, fractal->max_im);
 
 	LOG(PRIO_VVERBOSE, "Rendering x=%d to x=%d\n", render->xOff, render->xMax);
-	
-	int xnum = (render->xMax - render->xOff) / render->xSkip;
-
-	// Write row to client
-	if (!network_write(&y, 4, 1) ||
-	    !network_write(&xnum, 4, 1))
-	{
-		LOG(PRIO_ERROR, "Failed to write to client\n");
-		mp_clear(im0);
-		return 0;
-	}
-
 	for (int32_t x = render->xOff; x < render->xMax; x += render->xSkip)
 	{
 		if (!ProcessPoint(fractal, render, im0, x, y))
@@ -65,15 +57,24 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 	if (render->skip_primary_bulbs && InBulb(re0, im0))
 	{
 		LOG(PRIO_VVVERBOSE, "Yeah not any work to do!\n");
-		mp_clear(re0);
 
-		int zero = 0;
-		if (!network_write(&zero, 4, 1) || // Iteration count
-		    !network_write(&zero, 4, 1))   // Orbit length
+		int32_t zero = 0;
+		
+		// Write data
+		if (!network_write(&x, 4, 1) || 	// x
+			!network_write(&y, 4, 1)) ||	// y
+			!network_write_q(&re0) ||		// re
+			!network_write_q(&im0) ||		// im
+		    !network_write(&zero, 4, 1) ||  // Iteration count
+		    !network_write(&zero, 4, 1))    // Orbit length
 		{
 			LOG(PRIO_ERROR, "Failed to write to client\n");
+			mp_clear(re0);			
+			
 			return 0;
 		}
+		
+		mp_clear(re0);
 		return 1;
 	}
 
@@ -139,8 +140,24 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 
 	uint32_t ob_count = MIN(render->orbit_length, iter);
 
+	// TODO Implement off-grid orbits (algorithms to choose good long orbits for buddhabrot)
+	if (!network_write(&x, 4, 1) ||
+		!network_write(&y, 4, 1))
+	{
+		LOG(PRIO_ERROR, "Failed to write to client");
+		goto cleanup;	
+	}
+	
+	if (!network_write_q(&re0) ||
+		!network_write_q(&im0))
+	{
+		LOG(PRIO_ERROR, "Failed to write to client\n");
+		goto cleanup;
+	}
+
 	// Send iteration count & orbit length
 	if (!network_write(&iter, 4, 1) ||
+		!network_write(&render->orbit_start) ||
 	    !network_write(&ob_count, 4, 1)) 
 	{
 		LOG(PRIO_ERROR, "Failed to write to client\n");
@@ -149,55 +166,55 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 
 
 	int tryWrite = 1; 
-	if (orbit)  // We have stored the orbit
+	for (uint32_t i = 0; i < ob_count; i++)
 	{
-		for (uint32_t i = 0; i < ob_count; i++)
+		if (tryWrite)
 		{
-			if (tryWrite)
-			{
-				// Write rationals to client
+			// Write rationals to client
 #ifdef MP_FLOATS
-				mpq_t treal, timag;
-				mpq_inits(treal, timag, NULL);
+			mpq_t treal, timag;
+			mpq_inits(treal, timag, NULL);
 
-				mpq_set_f(treal, orbit[2 * i]); // Convert to rationals for exporting
-				mpq_set_f(timag, orbit[2 * i + 1]); 
+			mpq_set_f(treal, orbit[2 * i]); // Convert to rationals for exporting
+			mpq_set_f(timag, orbit[2 * i + 1]); 
 
-				int res = network_write_q(&treal);
-				if (res)
-				{
-					res = network_write_q(&timag);
-				}
-				if (!res)
-				{
-					LOG(PRIO_ERROR, "Failed to write rationals to client\n");
-					tryWrite = 0;
-				}
-
-				mpq_clear(treal);
-				mpq_clear(timag);
-#else
-				int res = network_write_q(&orbit[2 * i]);
-				if (res)
-				{
-					res = network_write_q(&orbit[2 * i + 1]);
-				}
-				if (!res)
-				{
-					LOG(PRIO_ERROR, "Failed to write rationals to client\n");
-					tryWrite = 0;
-				}
-#endif
+			int res = network_write_q(&treal);
+			if (res)
+			{
+				res = network_write_q(&timag);
 			}
-			// Clear even though we don't write them
-			mp_clear(orbit[2 * i]);
-			mp_clear(orbit[2 * i + 1]);
+			if (!res)
+			{
+				LOG(PRIO_ERROR, "Failed to write rationals to client\n");
+				tryWrite = 0;
+			}
+
+			mpq_clear(treal);
+			mpq_clear(timag);
+#else
+			int res = network_write_q(&orbit[2 * i]);
+			if (res)
+			{
+				res = network_write_q(&orbit[2 * i + 1]);
+			}
+			if (!res)
+			{
+				LOG(PRIO_ERROR, "Failed to write rationals to client\n");
+				tryWrite = 0;
+			}
+#endif
 		}
 	}
 
 	retcode = tryWrite;
 cleanup:
 
+	// Clear list of visited points
+	for (uint32_t i = 0; i < ob_count; i++)
+	{
+		mp_clear(orbit[2 * i]);
+		mp_clear(orbit[2 * i + 1]);		
+	}
 	free(orbit);
 
 	mp_clear(re0); // TODO mp_clears
