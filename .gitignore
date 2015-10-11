@@ -33,6 +33,8 @@
 *.h~
 *.*~
 
+# VS Code settings
+.vscode
 
 # Build
 build/*
