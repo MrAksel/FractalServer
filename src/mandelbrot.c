@@ -28,7 +28,7 @@ int calc_mandelbrot(struct fractal_params * fractal, struct render_params * rend
 
 int ProcessRow(struct fractal_params * fractal, struct render_params * render, int32_t y)
 {
-	mp_t im0; mp_init(im0); //Mapped y to imaginary value
+	mp_t im0; mp_init(im0); // Map y to imaginary axis
 	mp_map(im0, y, 0, render->height, fractal->min_im, fractal->max_im);
 
 	LOG(PRIO_VVERBOSE, "Rendering x=%d to x=%d\n", render->xOff, render->xMax);
@@ -50,7 +50,7 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 {
 	int retcode = 0; // Only set to 1 (success) if not 'goto cleanup'
 
-	mp_t re0; mp_init(re0);
+	mp_t re0; mp_init(re0);	// Map x to real axis
 	mp_map(re0, x, 0, render->width, fractal->min_re, fractal->max_re);
 
 	// Cardioid / bulb checking if enabled in render params
@@ -59,13 +59,15 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		LOG(PRIO_VVVERBOSE, "Yeah not any work to do!\n");
 
 		int32_t zero = 0;
+		int32_t one  = 1;
 		
 		// Write data
-		if (!network_write(&x, 4, 1) || 	// x
+		if (!network_write(&one, 4, 1) || 	// Positive number to indicate an orbit will follow
+			!network_write(&x, 4, 1) || 	// x
 			!network_write(&y, 4, 1)) ||	// y
 			!network_write_q(&re0) ||		// re
 			!network_write_q(&im0) ||		// im
-		    !network_write(&zero, 4, 1) ||  // Iteration count
+		    !network_write(&zero, 4, 1) ||  // Iteration count (uint, but zero is zero anyway)
 		    !network_write(&zero, 4, 1))    // Orbit length
 		{
 			LOG(PRIO_ERROR, "Failed to write to client\n");
@@ -79,10 +81,12 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 	}
 
 	mp_t *orbit = NULL;
-	if (render->orbit_length)
+	if (render->orbit_length)	// Check if number of intermediate points to store is > 0
 	{
+		// If so, create a buffer to store the coordinates
 		orbit = (mp_t *)malloc(2 * render->orbit_length * sizeof(mp_t));
-		if (!orbit)
+		
+		if (!orbit) // Damn, out of memory?
 		{
 			LOG(PRIO_ERROR, "Failed to allocate orbit buffer\n");
 			mp_clear(re0);
@@ -95,50 +99,61 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 
 	mp_t z_re_sq;	mp_init(z_re_sq);
 	mp_t z_im_sq;	mp_init(z_im_sq);
-	mp_t euclidd;	mp_init(euclidd);
+	mp_t euclidd;	mp_init(euclidd); // Euclidian distance from (z_re, z_im) to (0, 0)
 
-	mp_t z_re_tmp;	mp_init(z_re_tmp);
+	mp_t z_re_tmp;	mp_init(z_re_tmp);	// Variable to store intermediate z_re value
 
-	uint32_t iter = 0;
+	uint32_t iter = 0;	// Number of iterations before escaping
+	uint32_t ob_count = 0;	// Number of orbits actually stored in the array (in case of escaping before render->iteration_count)
 
 	while (iter < render->iteration_count) // Loop while under max count limit
 	{
-		int orbitIndex = iter - render->orbit_start;
+		int orbitIndex = iter - render->orbit_start; // Index in orbit buffer
 		if (orbit && orbitIndex >= 0 && orbitIndex < render->orbit_length)
 		{
-			// Store position in orbit array
-			mp_init_set(orbit[2 * orbitIndex], z_re);
+			// If we're storing the orbit, and the iteration is within the range of interesting points
+			// store the coordinate in the orbit array
+			mp_init_set(orbit[2 * orbitIndex],	   z_re);
 			mp_init_set(orbit[2 * orbitIndex + 1], z_im);
+			ob_count++;
 		}
-
+		
 		// Calculate new distance from center
+		// It might be interesting to know the first coordinate outside the radius of 2, 
+		// therefore this check comes after storing the current coord in the orbit array
 		mp_mul(z_re_sq, z_re, z_re);
 		mp_mul(z_im_sq, z_im, z_im);
 		mp_add(euclidd, z_re_sq, z_im_sq);
 
-		if (mp_cmp_si(euclidd, 4) >= 0)	// Only loop while inside radius 2
+		if (mp_cmp_si(euclidd, 4) >= 0)	// Only loop while inside radius 2 (squared)
 			break;
+			
 
 		//Perform one iteration 
 
-		// xtemp = x*x - y*y + x0
+		// xtemp = x*x - y*y + re0
 		// Already calculated squared values
 		mp_sub(z_re_tmp, z_re_sq, z_im_sq);
 		mp_add(z_re_tmp, z_re_tmp, re0);
 
-		// y = 2*x*y + y0
-		mp_mul(z_im, z_re, z_im);	//x*y
-		mp_mul_si(z_im, z_im, 2);	//x*y*2
-		mp_add(z_im, z_im, im0);		//x*y*2 + y0
+		// z_im = 2 * z_re * z_im + im0
+		mp_mul(z_im, z_re, z_im);	// z_re * z_im
+		mp_mul_si(z_im, z_im, 2);	// 2 * x * y
+		mp_add(z_im, z_im, im0);	// 2 * x * y + im0
 
-		// x = xtemp
+		// z_re = xtemp
 		mp_swap(z_re, z_re_tmp);
 
 		// Increment iteration counter
 		iter++;
 	}
 
-	uint32_t ob_count = MIN(render->orbit_length, iter);
+	uint32_t one = 1;
+	if (!network_write(&one, 4, 1))	// Write number of orbits client should expect (one)
+	{
+		LOG(PRIO_ERROR, "Failed to write to client");
+		goto cleanup;
+	}
 
 	// TODO Implement off-grid orbits (algorithms to choose good long orbits for buddhabrot)
 	if (!network_write(&x, 4, 1) ||
@@ -157,7 +172,7 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 
 	// Send iteration count & orbit length
 	if (!network_write(&iter, 4, 1) ||
-		!network_write(&render->orbit_start) ||
+		!network_write(&render->orbit_start, 4, 1) ||
 	    !network_write(&ob_count, 4, 1)) 
 	{
 		LOG(PRIO_ERROR, "Failed to write to client\n");
@@ -165,48 +180,47 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 	}
 
 
-	int tryWrite = 1; 
+	retcode = 1; // Hope for the best
 	for (uint32_t i = 0; i < ob_count; i++)
 	{
-		if (tryWrite)
-		{
-			// Write rationals to client
+		// Write rationals to client
 #ifdef MP_FLOATS
-			mpq_t treal, timag;
-			mpq_inits(treal, timag, NULL);
+		mpq_t treal, timag;
+		mpq_inits(treal, timag, NULL);
 
-			mpq_set_f(treal, orbit[2 * i]); // Convert to rationals for exporting
-			mpq_set_f(timag, orbit[2 * i + 1]); 
+		mpq_set_f(treal, orbit[2 * i]); // Convert to rationals for exporting
+		mpq_set_f(timag, orbit[2 * i + 1]); 
 
-			int res = network_write_q(&treal);
-			if (res)
-			{
-				res = network_write_q(&timag);
-			}
-			if (!res)
-			{
-				LOG(PRIO_ERROR, "Failed to write rationals to client\n");
-				tryWrite = 0;
-			}
-
-			mpq_clear(treal);
-			mpq_clear(timag);
-#else
-			int res = network_write_q(&orbit[2 * i]);
-			if (res)
-			{
-				res = network_write_q(&orbit[2 * i + 1]);
-			}
-			if (!res)
-			{
-				LOG(PRIO_ERROR, "Failed to write rationals to client\n");
-				tryWrite = 0;
-			}
-#endif
+		int res = network_write_q(&treal);
+		if (res)
+		{
+			res = network_write_q(&timag);
 		}
-	}
+		if (!res)
+		{
+			LOG(PRIO_ERROR, "Failed to write rationals to client\n");
+			retcode = 0;
+			break;	// Exit loop, we failed at sending coords
+		}
 
-	retcode = tryWrite;
+		mpq_clear(treal);
+		mpq_clear(timag);
+#else
+		// Already rationals, no need to convert
+		int res = network_write_q(&orbit[2 * i]);
+		if (res)
+		{
+			res = network_write_q(&orbit[2 * i + 1]);
+		}
+		if (!res)
+		{
+			LOG(PRIO_ERROR, "Failed to write rationals to client\n");
+			retcode = 0;
+			break; // No point in continuing..
+		}
+#endif
+	}
+	
 cleanup:
 
 	// Clear list of visited points

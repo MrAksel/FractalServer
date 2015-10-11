@@ -13,7 +13,7 @@
    - int  xOff, xSkip, xMax, yOff, ySkip, yMax
    - uint orbit start, orbit length
    - uint bool (1 is to use bulb checking to optimize fractal, but exludes some orbits, 0 calculates everything)
- - Renderer sends 200 (decimal, OK)
+ - Renderer sends int 200 if all is good (OK)
  - Renderer sends back calculated values
  - int number (>=0) of orbits to expect, or a negative number to signify end of transmission (skip next part)
    - For each orbit
@@ -22,12 +22,12 @@
      - uint iteration count
      - uint orbit start (offset before reporting orbits)
      - uint orbit length (number of coordinates following)
-       - Count complex coordinates (real, imaginary) - that means 2 * count rational numbers
+       - n complex coordinates (real, imaginary) - that means 2n rational numbers
        - int sign of numerator
        - long count of bytes in numerator
        - count bytes representing absolute value of numerator, LSB
        - long count bytes of denominator
        - count bytes representing abs denominator, LSB
- - Repeat last step until remote sends 0 orbits
+ - Repeat last step until remote sends negative number of orbits
 
 - Close connection

@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <gmp.h>
 #include <argp.h>
 #include "args.h"
@@ -19,4 +20,9 @@ int parse_args(int argc, char** argv)
 	mpf_set_default_prec(float_default_precision); //Initialized precision for floating-point numbers
 	
 	return 1;
+}
+
+void show_usage()
+{
+	printf("Umm.. I dunno how to use this either\n"); // Tell the user what to do
 }

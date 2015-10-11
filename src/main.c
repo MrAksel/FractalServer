@@ -20,6 +20,7 @@ int main(int argc, char** argv)
 	if (!parse_args(argc, argv))
 	{
 		LOG(PRIO_ERROR | PRIO_CRITICAL, "Failed parsing arguments\n");
+		show_usage();
 		exit(1);
 	}
 	if (!network_init())
@@ -35,44 +36,44 @@ int main(int argc, char** argv)
 	sigaction(SIGCHLD, &sigchld_action, NULL);	// Prevent spawning of child zombies
 
 	int errors_c = 0;
-	while (1)
+	while (1)	// TODO implement signal handler for ^C to exit loop
 	{
 		LOG(PRIO_INFO, "Waiting for inbound connection\n");
 		if (!network_accept())
 		{
 			LOG(PRIO_ERROR, "Failed to accept client\n");
 			errors_c++;
-			if (errors_c == 10) break;
+			if (errors_c == 10) break;	// Give up after ten errors
 			else				continue;
 		}
 
 		pid_t darkside = fork();
-		if (darkside != 0)		// On parent side or error
+		if (darkside != 0)		// the dark side of the fork (parent side or error)
 		{
-			network_close();
+			network_close();	// Close client socket (still open in forked process if success)
 		}
 		else if (darkside == 0)	// On child side
 		{
-			network_stop();
+			network_stop();		// Close listening socket (still open in parent process)
 
 			LOG(PRIO_INFO, "Forked\n");
 
 			uint32_t magic = 0xDEAF;
-			if (!network_write(&magic, 4, 1))
+			if (!network_write(&magic, 4, 1)) 	// Write magic number to client (lets client infer endianness)
 				network_quit();
 
-			if (!network_read(&magic, 4, 1) ||
+			if (!network_read(&magic, 4, 1) ||	// Read magic number to confirm client
 				magic != 0xFEED)
 				network_quit();
 
 			struct fractal_params fractal;
-			if (!network_read_mp(&fractal))
+			if (!network_read_mp(&fractal))		// Read parameters 
 				network_quit();
 
-			LOG(PRIO_VERBOSE, "Initialized fractal params\n");
+			LOG(PRIO_VERBOSE, "Received fractal params\n");
 
 			struct render_params param;
-			if (!network_read(&param, sizeof(param), 1))
+			if (!network_read(&param, sizeof(param), 1))	// Read some more parameters
 				network_quit();
 
 			/* Sample values
@@ -91,22 +92,22 @@ int main(int argc, char** argv)
 			param.skip_primary_bulbs = 1;
 			*/
 
-			LOG(PRIO_VERBOSE, "Initialized render params\n");
+			LOG(PRIO_VERBOSE, "Received render params\n");
 			
 			int ok = 200;
-			if (!network_write(&ok, 4, 1))
+			if (!network_write(&ok, 4, 1))	// All is good - send 200 OK
 				network_quit();
 
-			if (!calc_mandelbrot(&fractal, &param))
-				LOG(PRIO_ERROR, "Task failed\n");
+			if (!calc_mandelbrot(&fractal, &param))	// Perform the task and send results to client (all processing is in calc_mandelbrot)
+				LOG(PRIO_ERROR, "Task failed\n");	// ... sucks
 
-			LOG(PRIO_INFO, "Done\n");
-			network_finish();
-			network_close();
+			LOG(PRIO_INFO, "Done\n");	// Clean up
+			network_finish();	// Shutdown socket properly
+			network_close();	// Close client socket (fully closed connection now)
 		}
 	}
 
-	network_stop();
+	network_stop();	// Stop listening
 
 	LOG(PRIO_INFO, "Parent exiting\n");
 
