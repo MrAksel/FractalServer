@@ -1,6 +1,5 @@
 ﻿using System;
 using Numerics;
-using System.Collections.Generic;
 
 // TODO Create a real (ha-ha) BigComplex type
 using BigComplex = System.Tuple<Numerics.BigRational, Numerics.BigRational>;

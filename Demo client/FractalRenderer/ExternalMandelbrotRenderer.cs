@@ -1,16 +1,6 @@
-﻿using MiscUtil.Conversion;
-using MiscUtil.IO;
-using Numerics;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Numerics;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace FractalRenderer
 {
