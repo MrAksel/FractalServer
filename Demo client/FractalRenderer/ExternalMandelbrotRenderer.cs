@@ -14,22 +14,23 @@ using System.Threading.Tasks;
 
 namespace FractalRenderer
 {
-    public class ExternalMadelbrotRenderer : Renderer
+    public class ExternalMandelbrotCalculator : Calculator
     {
-        public IEnumerable<IPEndPoint> RenderHosts { get; set; }
+        public HostSelector HostSelector { get; set; }
 
-        public override OrbitMap Render(RenderOptions options)
+        public override OrbitMap Calculate(CalculationOptions options)
         {
-            RendererSelector sel = new RendererSelector(RenderHosts);
-            Queue<RenderOptions> rendertasks = new Queue<RenderOptions>(RenderTaskHelper.Split(options, 2 * sel.Hosts.Count));
+            // Needs finetuning - a fast internet connection would benefit from smaller tasks (better utilization of computing cores),
+            // but a slow one might become too slow from the overhead
+            Queue<CalculationOptions> tasks = new Queue<CalculationOptions>(RenderTaskHelper.Split(options, 8 * HostSelector.EffectiveWorkers));
 
             OrbitMap full = new OrbitMap();
             List<RendererConnection> connections = new List<RendererConnection>();
 
-            while (rendertasks.Count > 0)
+            while (tasks.Count > 0) // While there are still tasks left
             {
                 // Distribute tasks to available renderers
-                DistributeTasks(sel, rendertasks, connections);
+                DistributeTasks(HostSelector, tasks, connections);
 
                 // While we have running render tasks
                 while (connections.Count > 0)
@@ -39,6 +40,10 @@ namespace FractalRenderer
                     int h = WaitHandle.WaitAny(handles);
 
                     RendererConnection conn = connections[h];
+                    connections.RemoveAt(h);
+
+                    HostSelector.ConnectionCompleted(conn);
+
                     if (conn.Success)
                     { 
                         // If it was a success, extend the OrbitMap with these results
@@ -47,22 +52,21 @@ namespace FractalRenderer
                     else
                     {
                         // TODO error handling, retry?
-                        sel.DecreasePopularity(conn.Host); // Make it less likely to be selected for next render task
-                        rendertasks.Enqueue(conn.Task);    // Re-enqueue it until it succeeds (maybe have to do something about that)
+                        tasks.Enqueue(conn.Task);             // Re-enqueue it until it succeeds (maybe have to do something about that)
                     }
 
                     // Got an available renderer - fill it with a task
-                    DistributeTasks(sel, rendertasks, connections);
+                    DistributeTasks(HostSelector, tasks, connections);
                 }
             }
             return full; // Return the combined orbit map
         }
 
-        private void DistributeTasks(RendererSelector sel, Queue<RenderOptions> rendertasks, List<RendererConnection> connections)
+        private void DistributeTasks(HostSelector sel, Queue<CalculationOptions> rendertasks, List<RendererConnection> connections)
         {
-            while (rendertasks.Count > 0 && sel.AvailableHosts > 0)
+            while (rendertasks.Count > 0 && sel.AvailableWorkers > 0)
             {
-                RenderOptions opt = rendertasks.Dequeue();
+                CalculationOptions opt = rendertasks.Dequeue();
                 RendererConnection conn = sel.GetConnection();
                 conn.BeginRenderAsync(opt);
                 connections.Add(conn);

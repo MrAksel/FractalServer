@@ -1,8 +1,8 @@
 ﻿namespace FractalRenderer.Colorizers
 {
-    public struct RenderParameters
+    public struct RenderOptions
     {
-        public static readonly RenderParameters Empty = default(RenderParameters);
+        public static readonly RenderOptions Empty = default(RenderOptions);
 
         public int CanvasWidth
         {

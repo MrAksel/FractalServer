@@ -6,63 +6,76 @@ using System.Threading;
 
 namespace FractalRenderer
 {
-    internal class RendererSelector
+    public class HostSelector
     {
         private object threadlock;
         private ManualResetEvent resevent;
 
-        private List<IPEndPoint> renderHosts;
-        private List<IPEndPoint> availableHosts;
-        private List<RendererConnection> waiting;
+        private Dictionary<RenderHost, int> renderHosts;
+        private Dictionary<RendererConnection, RenderHost> waiting;
 
-        internal RendererSelector() : this(new List<IPEndPoint>())
+        public HostSelector() : this(new List<RenderHost>())
         {
 
         }
 
-        internal RendererSelector(IEnumerable<IPEndPoint> renderHosts)
+        public HostSelector(IEnumerable<RenderHost> renderHosts)
         {
             this.threadlock = new object();
             this.resevent = new ManualResetEvent(false);
 
-            this.renderHosts = renderHosts.ToList();
-            this.availableHosts = new List<IPEndPoint>(this.renderHosts);
-            this.waiting = new List<RendererConnection>();
+            this.renderHosts = new Dictionary<RenderHost, int>();
+            foreach (RenderHost h in renderHosts)
+                this.renderHosts.Add(h, h.NumWorkers);
+
+            this.waiting = new Dictionary<RendererConnection, RenderHost>();
         }
 
-        internal List<IPEndPoint> Hosts
+        public void AddHost(RenderHost host)
         {
-            get
-            {
-                return renderHosts;
-            }
-            set
-            {
-                renderHosts = value;
-            }
+            lock (threadlock)
+                renderHosts.Add(host, host.NumWorkers);
+            resevent.Set();
         }
 
-        public int AvailableHosts
+        internal List<RenderHost> Hosts
         {
             get
             {
                 lock (threadlock)
-                    return availableHosts.Count;
+                    return renderHosts.Keys.ToList();
+            }
+        }
+
+        public int EffectiveWorkers
+        {
+            get
+            {
+                lock (threadlock)
+                    return renderHosts.Sum(h => h.Key.NumWorkers);
+            }
+        }
+
+        public int AvailableWorkers
+        {
+            get
+            {
+                lock (threadlock)
+                    return renderHosts.Sum(h => h.Value);
             }
         }
 
         internal RendererConnection GetConnection()
         {
-            IPEndPoint ep;
+            RenderHost host;
             while (true)
             {
                 Monitor.Enter(threadlock);
-                if (availableHosts.Count > 0)
+                if (AvailableWorkers > 0)
                 {
-                    // TODO make a struct for RenderHost with a priority, and sort by priority
-                    // availableHosts.Sort(); 
-                    ep = availableHosts[0]; // Dequeue an available host
-                    availableHosts.RemoveAt(0);
+                    host = renderHosts.Where(p => p.Value > 0)                  // Select a host with available workers
+                                      .OrderByDescending(p => p.Key.Priority)   // Order by priority
+                                      .First().Key;                             // Take the first and best
 
                     Monitor.Exit(threadlock);
                     break;
@@ -74,26 +87,35 @@ namespace FractalRenderer
                 }
             }
 
-            RendererConnection c = new RendererConnection(ep);
-            c.CompletedEvent += (conn) =>
-            {
-                /*
-                if (conn.Success) // Adjust priority based on success or error
-                    conn.Host.Priority = conn.Host.Priority + 1;
-                else
-                    conn.Host.Priority = conn.Host.Priority - 1;
-                */
+            RendererConnection c = new RendererConnection(host.EndPoint);
 
-                lock (threadlock)
-                    availableHosts.Add(conn.Host); // Put the host back in the queue of available hosts
-                resevent.Set(); // Signal that there is a new one available
-            };
+            lock (threadlock)
+            {
+                renderHosts[host]--;    // Decease number of available workers on this host
+                waiting.Add(c, host);   // Add the connection to the list of running ops
+            }
+
             return c;
         }
 
-        internal void DecreasePopularity(IPEndPoint host)
+        internal void ConnectionCompleted(RendererConnection conn)
         {
-            // TODO sort RenderHosts by priority (see above)
+            RenderHost host;
+            lock (threadlock)
+            {
+                host = waiting[conn];    // Retrieve the host associated with this connection
+                waiting.Remove(conn);
+            }
+
+            if (conn.Success) // Adjust priority based on success or error
+                host.Priority++;
+            else
+                host.Priority--;
+
+            lock (threadlock)
+                renderHosts[host]++; // Increase the number of available workers on this host again
+
+            resevent.Set(); // Signal that there is a new worker available
         }
     }
 }

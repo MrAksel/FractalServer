@@ -3,20 +3,20 @@ using System.Threading;
 
 namespace FractalRenderer
 {
-    public abstract class Renderer
+    public abstract class Calculator
     {
         public delegate void RenderCompleteCallback(OrbitMap image);
 
-        public abstract OrbitMap Render(RenderOptions options);
+        public abstract OrbitMap Calculate(CalculationOptions options);
 
-        public virtual void RenderAsync(RenderOptions options, RenderCompleteCallback callback)
+        public virtual void RenderAsync(CalculationOptions options, RenderCompleteCallback callback)
         {
             ThreadPool.QueueUserWorkItem((o) =>
             {
-                RenderOptions op = (o as object[])[0] as RenderOptions;
+                CalculationOptions op = (o as object[])[0] as CalculationOptions;
                 RenderCompleteCallback cb = (o as object[])[1] as RenderCompleteCallback;
 
-                OrbitMap calc = Render(op);
+                OrbitMap calc = Calculate(op);
                 cb(calc);
             }, new object[] { options, callback });
         }

@@ -18,11 +18,8 @@ namespace FractalRenderer
         public bool Success { get; internal set; }
         public OrbitMap Result { get; internal set; }
         public IPEndPoint Host { get; internal set; }
-        public RenderOptions Task { get; internal set; }
+        public CalculationOptions Task { get; internal set; }
         public WaitHandle WaitHandle { get; internal set; }
-
-        internal delegate void Completed(RendererConnection obj);
-        internal event Completed CompletedEvent;
 
         internal RendererConnection(IPEndPoint host)
         {
@@ -32,7 +29,7 @@ namespace FractalRenderer
             WaitHandle = new ManualResetEvent(false);
         }
 
-        internal void BeginRenderAsync(RenderOptions opt)
+        internal void BeginRenderAsync(CalculationOptions opt)
         {
             Task = opt;
             worker = new Thread(Work);
@@ -41,7 +38,7 @@ namespace FractalRenderer
 
         private void Work(object arg)
         {
-            RenderOptions opt = arg as RenderOptions;
+            CalculationOptions opt = arg as CalculationOptions;
             NetworkStream ns = null;
             Success = false;
             try
@@ -91,7 +88,7 @@ namespace FractalRenderer
 
                     int ok = br.ReadInt32();
                     if (ok != 200)
-                        throw new InvalidOperationException();
+                        throw new InvalidOperationException();  // TODO Proper exception
 
                     // Sent parameters, now read all orbits
                     OrbitMap map = new OrbitMap();                    
@@ -142,8 +139,6 @@ namespace FractalRenderer
                     ns.Close();
                 
                 (WaitHandle as ManualResetEvent).Set(); // Public signal that I'm done
-                if (CompletedEvent != null)             // Also signal the event
-                    CompletedEvent(this);
             }
         }
 

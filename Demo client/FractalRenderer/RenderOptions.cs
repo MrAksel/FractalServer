@@ -12,10 +12,9 @@ using System.Numerics;
 
 namespace FractalRenderer
 {
-    public class RenderOptions : INotifyPropertyChanged
+    public class CalculationOptions
     {
         uint iteration_count;
-        uint interlacing_pass;
 
         int width, height;
 
@@ -28,6 +27,37 @@ namespace FractalRenderer
 
         BigRational minRe, maxRe, minIm, maxIm;
 
+        public CalculationOptions(int width, int height, uint iter)
+        {
+            this.width = xMax = width;
+            this.height = yMax = height;
+            this.xSkip = 1;
+            this.ySkip = 1;
+            this.iteration_count = iter;
+            this.orbit_length = iter;
+            this.skip_primary_bulbs = 0U;
+
+            this.minRe = new BigRational(-5, 2);    // -2.5 to
+            this.maxRe = new BigRational(3, 2);     //  1.5
+            this.minIm = new BigRational(-3, 2);    // -1.5 to
+            this.maxIm = new BigRational(3, 2);     //  1.5
+        }
+
+        internal CalculationOptions Duplicate()
+        {
+            return new CalculationOptions(width, height, iteration_count)
+            {
+                XSkip = xSkip,
+                YSkip = ySkip,
+                OrbitLength = orbit_length,
+                BulbChecking = BulbChecking,
+                MinRe = minRe,
+                MaxRe = maxRe,
+                MinIm = minIm,
+                MaxIm = maxIm
+            };
+        }
+
         public uint OrbitStart
         {
             get
@@ -37,7 +67,6 @@ namespace FractalRenderer
             set
             {
                 orbit_start = value;
-                NotifyPropertyChanged("OrbitStart");
             }
         }
 
@@ -50,7 +79,6 @@ namespace FractalRenderer
             set
             {
                 orbit_length = value;
-                NotifyPropertyChanged("OrbitLength");
             }
         }
 
@@ -64,7 +92,6 @@ namespace FractalRenderer
             set
             {
                 width = value;
-                NotifyPropertyChanged("Width");
             }
         }
 
@@ -78,7 +105,6 @@ namespace FractalRenderer
             set
             {
                 height = value;
-                NotifyPropertyChanged("Height");
             }
         }
 
@@ -92,7 +118,6 @@ namespace FractalRenderer
             set
             {
                 minRe = value;
-                NotifyPropertyChanged("MinRe");
             }
         }
 
@@ -106,7 +131,6 @@ namespace FractalRenderer
             set
             {
                 maxRe = value;
-                NotifyPropertyChanged("MaxRe");
             }
         }
 
@@ -120,7 +144,6 @@ namespace FractalRenderer
             set
             {
                 minIm = value;
-                NotifyPropertyChanged("MinIm");
             }
         }
 
@@ -134,7 +157,6 @@ namespace FractalRenderer
             set
             {
                 maxIm = value;
-                NotifyPropertyChanged("MaxIm");
             }
         }
 
@@ -147,7 +169,6 @@ namespace FractalRenderer
             set
             {
                 iteration_count = value;
-                NotifyPropertyChanged("IterationCount");
             }
         }
 
@@ -231,33 +252,8 @@ namespace FractalRenderer
             }
             set
             {
-                skip_primary_bulbs = (value == true ? 1U : 0U);
+                skip_primary_bulbs = (value ? 1U : 0U);
             }
-        }
-
-        public uint InterlacingPass
-        {
-            get
-            {
-                return interlacing_pass;
-            }
-            set
-            {
-                interlacing_pass = value;
-            }
-        }
-
-        public uint NumInterlacingPasses
-        {
-            get;
-            set;
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-        private void NotifyPropertyChanged(string prop)
-        {
-            if (PropertyChanged != null)
-                PropertyChanged(this, new PropertyChangedEventArgs(prop));
         }
     }
 }

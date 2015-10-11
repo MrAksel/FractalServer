@@ -58,6 +58,7 @@
     <Compile Include="OrbitMap.cs" />
     <Compile Include="RendererConnection.cs" />
     <Compile Include="RendererSelector.cs" />
+    <Compile Include="RenderHost.cs" />
     <Compile Include="RenderTaskHelper.cs" />
     <Compile Include="Renderer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

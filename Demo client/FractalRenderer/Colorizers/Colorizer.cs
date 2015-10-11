@@ -9,10 +9,6 @@ namespace FractalRenderer.Colorizers
 {
     public abstract class Colorizer
     {
-        public abstract Bitmap DrawBitmap(OrbitMap m);
-
-        public abstract Bitmap DrawBitmap(OrbitMap m, RenderParameters rp);
-
-        public abstract Bitmap DrawBitmap(OrbitMap m, RenderParameters rp, Constraints[] orbitConstraints);
+        public abstract Bitmap DrawBitmap(OrbitMap m, RenderOptions rp, Constraints[] orbitConstraints);
     }
 }
