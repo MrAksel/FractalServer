@@ -94,6 +94,7 @@ size_t network_write(void *buffer, size_t size, size_t count)
 	size_t btot = size * count;
 	ssize_t bw = 0;
 	ssize_t n;
+	LOG(PRIO_VVVERBOSE, "Writing a total of %d bytes from %X\n", btot, buffer);
 	while (bw < btot)
 	{
 		n = write(clientfd, (unsigned char *)buffer + bw, btot - bw);
@@ -108,6 +109,7 @@ size_t network_write(void *buffer, size_t size, size_t count)
 			LOG(PRIO_ERROR, "Write error (%d/%d)\n", bw, btot);
 			return 0;
 		}
+		LOG(PRIO_VVVERBOSE, "Wrote &d bytes\n", n);
 	}
 	return bw / size;
 }
@@ -123,56 +125,70 @@ size_t network_write_q(mpq_t q)
 	// Write sign
 	if (!network_write(&sign, 4, 1)) 
 	{
+		LOG(PRIO_VVVERBOSE, "Failed to write sign\n");
 		return 0;
 	}
 	totcount += 4;
+	LOG(PRIO_VVVERBOSE, "Wrote sign\n");
 
 	unsigned char *buff = NULL;
 
-	mpz_export(buff, &count, -1, 1, 0, 0, mpq_numref(q));
+	buff = (unsigned char *)mpz_export(buff, &count, -1, 1, 0, 0, mpq_numref(q));
+	LOG(PRIO_VVVERBOSE, "Exported numerator to buffer\n");
 	
 	s_count = (int64_t)count; 
 	// Write size of buffer as long
 	if (!network_write(&s_count, 8, 1))
 	{
 		free(buff);
+		LOG(PRIO_VVVERBOSE, "Failed to write buffer length\n");
 		return 0;
 	}
 	totcount += 8;
+	LOG(PRIO_VVVERBOSE, "Wrote buffer length\n");
 
 	// Write actual buffer with values
 	if (network_write(buff, 1, count) != count)
 	{
 		free(buff);
+		LOG(PRIO_VVVERBOSE, "Failed to write buffer (%d bytes)\n", count);
 		return 0;
 	}
 	totcount += count;
 	free(buff); buff = NULL;
+	LOG(PRIO_VVVERBOSE, "Wrote %d bytes\n", count);
 
-	mpz_export(buff, &count, -1, 1, 0, 0, mpq_denref(q));
+	count = 0;
+	buff = (unsigned char *)mpz_export(buff, &count, -1, 1, 0, 0, mpq_denref(q));
+	LOG(PRIO_VVVERBOSE, "Exported denominator to buffer\n");
 
 	s_count = (int64_t)count;
 	// Write size of buffer as long
 	if (!network_write(&s_count, 8, 1))
 	{
 		free(buff);
+		LOG(PRIO_VVVERBOSE, "Failed to write buffer length\n");
 		return 0;
 	}
 	totcount += 8;
+	LOG(PRIO_VVVERBOSE, "Wrote buffer length\n");
 
 	if (network_write(buff, 1, count) != count)
 	{
 		free(buff);
+		LOG(PRIO_VVVERBOSE, "Failed to write buffer (%d bytes)\n", count);
 		return 0;
 	}
 	totcount += count;
 	free(buff);
+	LOG(PRIO_VVVERBOSE, "Wrote %d bytes\n", count);
 
 	return totcount;
 }
 
 size_t network_write_mp(mp_t v)
 {
+	LOG(PRIO_VVVERBOSE, "network_write_mp\n");
 #ifdef MP_RATIONALS
 	return network_write_q(v);
 #else
