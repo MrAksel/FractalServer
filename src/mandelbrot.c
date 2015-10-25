@@ -65,8 +65,8 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		if (!network_write(&one, 4, 1) || 	// Positive number to indicate an orbit will follow
 			!network_write(&x, 4, 1) || 	// x
 			!network_write(&y, 4, 1) ||	// y
-			!network_write_mp(&re0) ||		// re
-			!network_write_mp(&im0) ||		// im
+			!network_write_mp(re0) ||		// re
+			!network_write_mp(im0) ||		// im
 		    !network_write(&zero, 4, 1) ||  // Iteration count (uint, but zero is zero anyway)
 		    !network_write(&zero, 4, 1))    // Orbit length
 		{
@@ -163,8 +163,8 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		goto cleanup;	
 	}
 	
-	if (!network_write_mp(&re0) ||
-		!network_write_mp(&im0))
+	if (!network_write_mp(re0) ||
+		!network_write_mp(im0))
 	{
 		LOG(PRIO_ERROR, "Failed to write to client\n");
 		goto cleanup;

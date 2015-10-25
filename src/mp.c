@@ -9,12 +9,6 @@ void mpq_init_set_q(mpq_t rop, mpq_t op)
 	// mpz_set(mpq_denref(rop), mpq_denref(op)); //Set denominator
 }
 
-void mpq_init_set_f(mpq_t rop, mpf_t op)
-{
-	mpq_init(rop);
-	mpq_set_f(rop, op);
-}
-
 void mpq_init_set_r(mpq_t rop, signed long int num2, signed long int den2)
 {
 	mpq_init(rop);
@@ -148,6 +142,14 @@ void mpf_div_si(mpf_t rop, mpf_t op1, signed long int op2)
 }
 
 #endif
+
+
+
+void mpq_init_set_f(mpq_t rop, mpf_t op)
+{
+	mpq_init(rop);
+	mpq_set_f(rop, op);
+}
 
 void mp_map(mp_t rop, int v, int s_min, int s_max, mp_t t_min, mp_t t_max)
 {

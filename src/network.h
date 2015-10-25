@@ -11,8 +11,8 @@ size_t network_read (void *buffer, size_t size, size_t count);
 size_t network_write(void *buffer, size_t size, size_t count);
 
 size_t network_read_mp(struct fractal_params *fractal);
-size_t network_write_q(mpq_t *q);
-size_t network_write_mp(mp_t *v);
+size_t network_write_q(mpq_t q);
+size_t network_write_mp(mp_t v);
 
 void network_stop();
 void network_close();

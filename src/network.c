@@ -7,6 +7,7 @@
 #include "mandelbrot.h"
 #include "network.h"
 #include "log.h"
+#include "mp.h"
 
 const int port = 3987;
 int sockfd;
@@ -111,13 +112,13 @@ size_t network_write(void *buffer, size_t size, size_t count)
 	return bw / size;
 }
 
-size_t network_write_q(mpq_t *q)
+size_t network_write_q(mpq_t q)
 {
 	size_t totcount = 0;
 	size_t count = 0;
 	int64_t s_count;
 
-	int32_t sign = mpz_sgn(mpq_numref(*q));
+	int32_t sign = mpz_sgn(mpq_numref(q));
 	
 	// Write sign
 	if (!network_write(&sign, 4, 1)) 
@@ -128,7 +129,7 @@ size_t network_write_q(mpq_t *q)
 
 	unsigned char *buff = NULL;
 
-	mpz_export(buff, &count, -1, 1, 0, 0, mpq_numref(*q));
+	mpz_export(buff, &count, -1, 1, 0, 0, mpq_numref(q));
 	
 	s_count = (int64_t)count; 
 	// Write size of buffer as long
@@ -148,7 +149,7 @@ size_t network_write_q(mpq_t *q)
 	totcount += count;
 	free(buff); buff = NULL;
 
-	mpz_export(buff, &count, -1, 1, 0, 0, mpq_denref(*q));
+	mpz_export(buff, &count, -1, 1, 0, 0, mpq_denref(q));
 
 	s_count = (int64_t)count;
 	// Write size of buffer as long
@@ -170,14 +171,14 @@ size_t network_write_q(mpq_t *q)
 	return totcount;
 }
 
-size_t network_write_mp(mp_t *v)
+size_t network_write_mp(mp_t v)
 {
 #ifdef MP_RATIONALS
-	return network_write_q(*v);
+	return network_write_q(v);
 #else
 	mpq_t q;
-	mpq_init_set_f(q, *v);
-	size_t res = network_write_q(&q);
+	mpq_init_set_f(q, v);
+	size_t res = network_write_q(q);
 	mpq_clear(q);
 	return res;
 #endif
