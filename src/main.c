@@ -76,22 +76,6 @@ int main(int argc, char** argv)
 			if (!network_read(&param, sizeof(param), 1))	// Read some more parameters
 				network_quit();
 
-			/* Sample values
-			param.iteration_count	= 1000;
-			param.interlacing_pass	= 1;
-			param.width		= 320;
-			param.height	= 240;
-			param.xOff		= 0;
-			param.xSkip		= 1;
-			param.xMax		= 320;
-			param.yOff		= 0;
-			param.ySkip		= 1;
-			param.yMax		= 240;
-			param.orbit_start	= 0;
-			param.orbit_length	= 0;
-			param.skip_primary_bulbs = 1;
-			*/
-
 			LOG(PRIO_VERBOSE, "Received render params\n");
 			
 			int ok = 200;
@@ -104,6 +88,7 @@ int main(int argc, char** argv)
 			LOG(PRIO_INFO, "Done\n");	// Clean up
 			network_finish();	// Shutdown socket properly
 			network_close();	// Close client socket (fully closed connection now)
+			exit(0);
 		}
 	}
 

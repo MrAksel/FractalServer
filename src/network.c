@@ -98,7 +98,7 @@ size_t network_write(void *buffer, size_t size, size_t count)
 	{
 		n = write(clientfd, (unsigned char *)buffer + bw, btot - bw);
 		bw += n;		
-		if (n < 1)
+		if (n == 0)
 		{
 			LOG(PRIO_ERROR, "Wrote zero bytes (%d/%d)\n", bw, btot);
 			return 0;
