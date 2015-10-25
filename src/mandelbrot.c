@@ -184,33 +184,10 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 	for (uint32_t i = 0; i < ob_count; i++)
 	{
 		// Write rationals to client
-#ifdef MP_FLOATS
-		mpq_t treal, timag;
-		mpq_inits(treal, timag, NULL);
-
-		mpq_set_f(treal, orbit[2 * i]); // Convert to rationals for exporting
-		mpq_set_f(timag, orbit[2 * i + 1]); 
-
-		int res = network_write_q(&treal);
+		int res = network_write_mp(orbit[2 * i]);
 		if (res)
 		{
-			res = network_write_q(&timag);
-		}
-		if (!res)
-		{
-			LOG(PRIO_ERROR, "Failed to write rationals to client\n");
-			retcode = 0;
-			break;	// Exit loop, we failed at sending coords
-		}
-
-		mpq_clear(treal);
-		mpq_clear(timag);
-#else
-		// Already rationals, no need to convert
-		int res = network_write_q(&orbit[2 * i]);
-		if (res)
-		{
-			res = network_write_q(&orbit[2 * i + 1]);
+			res = network_write_mp(orbit[2 * i + 1]);
 		}
 		if (!res)
 		{
@@ -218,7 +195,6 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 			retcode = 0;
 			break; // No point in continuing..
 		}
-#endif
 	}
 	
 cleanup:
