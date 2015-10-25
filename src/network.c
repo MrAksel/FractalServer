@@ -170,6 +170,19 @@ size_t network_write_q(mpq_t *q)
 	return totcount;
 }
 
+size_t network_write_mp(mp_t *v)
+{
+#ifdef MP_RATIONALS
+	return network_write_q(*v);
+#else
+	mpq_t q;
+	mpq_init_set_f(q, *v);
+	size_t res = network_write_q(&q);
+	mpq_clear(q);
+	return res;
+#endif
+}
+
 size_t network_read_mp(struct fractal_params *fractal)
 {
 	mpq_t vals[4];
