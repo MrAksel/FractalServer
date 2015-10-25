@@ -14,7 +14,7 @@ static char doc[] = "FractalServer - a backend for computing fractals with suppo
 
 int parse_args(int argc, char** argv)
 {
-	log_priority_mask = PRIO_ERROR | PRIO_CRITICAL | PRIO_HIGH | PRIO_INFO | PRIO_VERBOSE	;
+	//log_priority_mask = PRIO_ERROR | PRIO_CRITICAL | PRIO_HIGH | PRIO_INFO | PRIO_VERBOSE	;
 		
 	float_default_precision = 64 * 8; // 64 bytes precision
 	mpf_set_default_prec(float_default_precision); //Initialized precision for floating-point numbers

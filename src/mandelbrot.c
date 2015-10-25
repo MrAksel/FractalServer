@@ -52,6 +52,7 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 
 	mp_t re0; mp_init(re0);	// Map x to real axis
 	mp_map(re0, x, 0, render->width, fractal->min_re, fractal->max_re);
+	LOG(PRIO_VVVERBOSE, "Mapped x to real axis\n");
 
 	// Cardioid / bulb checking if enabled in render params
 	if (render->skip_primary_bulbs && InBulb(re0, im0))
@@ -79,7 +80,7 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		mp_clear(re0);
 		return 1;
 	}
-
+	
 	mp_t *orbit = NULL;
 	if (render->orbit_length)	// Check if number of intermediate points to store is > 0
 	{
@@ -93,6 +94,8 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 			return 0; 
 		}
 	}
+	
+	LOG(PRIO_VVVERBOSE, "Allocated buffers\n");
 
 	mp_t z_re;	mp_init_set(z_re, re0);
 	mp_t z_im;	mp_init_set(z_im, im0);
@@ -106,6 +109,8 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 	uint32_t iter = 0;	// Number of iterations before escaping
 	uint32_t ob_count = 0;	// Number of orbits actually stored in the array (in case of escaping before render->iteration_count)
 
+	LOG(PRIO_VVVERBOSE, "Starting mandelbrot iteration (up to %d)\n", render->iteration_count);
+	
 	while (iter < render->iteration_count) // Loop while under max count limit
 	{
 		int orbitIndex = iter - render->orbit_start; // Index in orbit buffer
@@ -148,12 +153,15 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		iter++;
 	}
 
+	LOG(PRIO_VVVERBOSE, "Finished, %d iterations\n", iter);
+	
 	uint32_t one = 1;
 	if (!network_write(&one, 4, 1))	// Write number of orbits client should expect (one)
 	{
 		LOG(PRIO_ERROR, "Failed to write to client");
 		goto cleanup;
 	}
+	LOG(PRIO_VVVERBOSE, "Written stage 1\n");
 
 	// TODO Implement off-grid orbits (algorithms to choose good long orbits for buddhabrot)
 	if (!network_write(&x, 4, 1) ||
@@ -162,6 +170,7 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		LOG(PRIO_ERROR, "Failed to write to client");
 		goto cleanup;	
 	}
+	LOG(PRIO_VVVERBOSE, "Written stage 2\n");
 	
 	if (!network_write_mp(re0) ||
 		!network_write_mp(im0))
@@ -169,6 +178,7 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		LOG(PRIO_ERROR, "Failed to write to client\n");
 		goto cleanup;
 	}
+	LOG(PRIO_VVVERBOSE, "Written stage 3\n");
 
 	// Send iteration count & orbit length
 	if (!network_write(&iter, 4, 1) ||
@@ -178,6 +188,7 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		LOG(PRIO_ERROR, "Failed to write to client\n");
 		goto cleanup;
 	}
+	LOG(PRIO_VVVERBOSE, "Written stage 4\n");
 
 
 	retcode = 1; // Hope for the best
@@ -196,9 +207,12 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 			break; // No point in continuing..
 		}
 	}
+	LOG(PRIO_VVVERBOSE, "Written whole orbit to client\n");
 	
 cleanup:
 
+	LOG(PRIO_VVVERBOSE, "Cleanup\n");
+	
 	// Clear list of visited points
 	for (uint32_t i = 0; i < ob_count; i++)
 	{
