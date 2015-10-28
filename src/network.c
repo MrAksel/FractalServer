@@ -6,12 +6,11 @@
 #include <gmp.h>
 #include "mandelbrot.h"
 #include "network.h"
+#include "args.h"
 #include "log.h"
 #include "mp.h"
 
-const int port = 3987;
 int sockfd;
-
 int clientfd;
 
 int network_init()
@@ -21,13 +20,18 @@ int network_init()
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	
 	if (sockfd == -1)
+	{
+		LOG(PRIO_ERROR, "Failed to create socket\n");
 		return 0;
-
+	}
+	
 	bzero(&servaddr, sizeof(servaddr));
 	
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	servaddr.sin_port = htons(port);
+	
+	LOG(PRIO_VERBOSE, "Trying to listen on port %d\n", port);
 	
 	int enable = 1;
 	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
@@ -36,14 +40,17 @@ int network_init()
 	if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == -1)
 	{
 		close(sockfd);
+		LOG(PRIO_ERROR, "Failed to bind socket\n");
 		return 0;
 	}
 	if (listen(sockfd, 1024) == -1)
 	{
 		close(sockfd);
+		LOG(PRIO_ERROR, "Failed to put socket in listening mode\n");
 		return 0;
 	}
 	
+	LOG(PRIO_INFO, "Listening on port %d\n", port);	
 	return 1;
 }
 
@@ -52,7 +59,10 @@ int network_accept()
 	struct sockaddr_in cliaddr;
 	socklen_t clilen = sizeof(cliaddr);
 	
+	LOG(PRIO_VERBOSE, "Waiting for connection\n");
+	
 	clientfd = accept(sockfd, (struct sockaddr *)&cliaddr, &clilen);
+	LOG(PRIO_VERBOSE, "Client connected!\n");
 	
 	if (clientfd == -1)
 	{

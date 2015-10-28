@@ -43,7 +43,7 @@ namespace FractalRenderer.Colorizers
                     o.Y >= 0 && o.Y < b.Height)
                 {
                     uint gray = (uint)((ulong)o.Iterations * 255) / maxIter;
-                    Marshal.WriteInt32(bd.Scan0 + o.Y * bd.Stride + o.X,
+                    Marshal.WriteInt32(bd.Scan0 + o.Y * bd.Stride + o.X * 4,
                                        unchecked ((int)((gray << 24) | (gray << 16) | (gray << 8) | gray)));
                 }
             }
