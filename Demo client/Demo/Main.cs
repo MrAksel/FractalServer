@@ -3,6 +3,7 @@ using FractalRenderer.Colorizers;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Net;
 using System.Windows.Forms;
 
 namespace FractalClient
@@ -14,17 +15,51 @@ namespace FractalClient
         private ExternalMandelbrotCalculator calc;
         private List<Colorizer> colorizers;
 
-        public Main()
+        public Main(string[] args)
         {
             InitializeComponent();
 
-            //RenderHost host = new RenderHost(new System.Net.IPEndPoint(System.Net.Dns.GetHostAddresses("sampleaddress.domain.tl")[0], 40876),
-            //                                 8); // Address of external render host, and number of tasks this host can perform simultaneously
+            IPEndPoint ep = null;
+            if (args.Length > 0)
+            {
+                string[] split = args[0].Split(':');
+                if (split.Length == 2)
+                {
+                    IPAddress ip;
+                    int port;
+                    if (!IPAddress.TryParse(split[0], out ip))
+                    {
+                        IPAddress[] addr = Dns.GetHostAddresses(split[0]);
+                        if (addr.Length == 0)
+                            Console.WriteLine("Invalid IP address");
+                        else
+                            ip = addr[0];
+                    }
+                    if (ip != null)
+                    {
+                        if (!int.TryParse(split[1], out port))
+                            Console.WriteLine("Invalid port");
+                        else
+                            ep = new IPEndPoint(ip, port);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Invalid arguments");
+                }
+            }
 
-            //RenderHost host = new RenderHost(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 50871), 8);
+            RenderHost host;
+            if (ep != null)
+            {
+                host = new RenderHost(ep, 8);
+            }
+            else
+            {
+                host = new RenderHost(new IPEndPoint(Dns.GetHostAddresses("samplehost.net")[0], 443),
+                                      8); // Address of external render host, and number of tasks this host can perform simultaneously
+            }
 
-            RenderHost host = new RenderHost(new System.Net.IPEndPoint(System.Net.IPAddress.Parse("192.168.1.150"), 3987),
-                                               1);
 
             calc = new ExternalMandelbrotCalculator();
             calc.HostSelector = new HostSelector();
@@ -39,7 +74,8 @@ namespace FractalClient
             Colorizer c = colorizers[ci++ % colorizers.Count];
 
             CalculationOptions opt = new CalculationOptions(pictureBox1.Width, pictureBox1.Height, 100);
-            opt.BulbChecking = false;
+            opt.BulbChecking = true;
+            opt.OrbitLength = 0;
 
             RenderOptions rp = new RenderOptions() { CanvasWidth = pictureBox1.Width, CanvasHeight = pictureBox1.Height };
 
