@@ -69,6 +69,7 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 			!network_write_mp(re0) ||		// re
 			!network_write_mp(im0) ||		// im
 		    !network_write(&zero, 4, 1) ||  // Iteration count (uint, but zero is zero anyway)
+			!network_write(&zero, 4, 1) ||	// Offset index of first orbit coordinate
 		    !network_write(&zero, 4, 1))    // Orbit length
 		{
 			LOG(PRIO_ERROR, "Failed to write to client\n");

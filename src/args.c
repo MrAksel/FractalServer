@@ -5,7 +5,7 @@
 #include "args.h"
 #include "log.h"
 
-const int port = 3987;
+int port = 3987;
 int log_priority_mask = 0xFFFFFFFF;
 
 mp_bitcnt_t float_default_precision = 64 * 8;
