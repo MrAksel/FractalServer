@@ -52,7 +52,6 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 
 	mp_t re0; mp_init(re0);	// Map x to real axis
 	mp_map(re0, x, 0, render->width, fractal->min_re, fractal->max_re);
-	LOG(PRIO_VVVERBOSE, "Mapped x to real axis\n");
 
 	// Cardioid / bulb checking if enabled in render params
 	if (render->skip_primary_bulbs && InBulb(re0, im0))
@@ -162,7 +161,6 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		LOG(PRIO_ERROR, "Failed to write to client");
 		goto cleanup;
 	}
-	LOG(PRIO_VVVERBOSE, "Written stage 1\n");
 
 	// TODO Implement off-grid orbits (algorithms to choose good long orbits for buddhabrot)
 	if (!network_write(&x, 4, 1) ||
@@ -171,7 +169,6 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		LOG(PRIO_ERROR, "Failed to write to client");
 		goto cleanup;	
 	}
-	LOG(PRIO_VVVERBOSE, "Written stage 2\n");
 	
 	if (!network_write_mp(re0) ||
 		!network_write_mp(im0))
@@ -179,7 +176,6 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		LOG(PRIO_ERROR, "Failed to write to client\n");
 		goto cleanup;
 	}
-	LOG(PRIO_VVVERBOSE, "Written stage 3\n");
 
 	// Send iteration count & orbit length
 	if (!network_write(&iter, 4, 1) ||
@@ -189,7 +185,6 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 		LOG(PRIO_ERROR, "Failed to write to client\n");
 		goto cleanup;
 	}
-	LOG(PRIO_VVVERBOSE, "Written stage 4\n");
 
 
 	retcode = 1; // Hope for the best
@@ -211,8 +206,6 @@ uint32_t ProcessPoint(struct fractal_params * fractal, struct render_params * re
 	LOG(PRIO_VVVERBOSE, "Written whole orbit to client\n");
 	
 cleanup:
-
-	LOG(PRIO_VVVERBOSE, "Cleanup\n");
 	
 	// Clear list of visited points
 	for (uint32_t i = 0; i < ob_count; i++)
@@ -244,13 +237,13 @@ int InBulb(mp_t z_re, mp_t z_im)
 	mp_init(q); 		//TODO mp_inits
 	mp_init(ls);
 	mp_init(rs);
+	mp_init(xmq);
 
 	mp_mul(z_re_sq, z_re, z_re); //Square input
 	mp_mul(z_im_sq, z_im, z_im);
 
 
-	mp_init_set(xmq, z_re);		// xmq = z_re
-	mp_sub_r(xmq, xmq, 1, 4); 	// xmq = z_re - 1/4
+	mp_sub_r(xmq, z_re, 1, 4); 	// xmq = z_re - 1/4
 
 	mp_mul(q, xmq, xmq);		// q = (x - 1/4)²
 	mp_add(q, q, z_im_sq);		// q = (x - 1/4)² + z_im²
@@ -265,15 +258,20 @@ int InBulb(mp_t z_re, mp_t z_im)
 		mp_clear(z_re_sq);
 		mp_clear(z_im_sq);
 		mp_clear(q);
+		mp_clear(xmq);
 		mp_clear(ls);
 		mp_clear(rs);
-		mp_clear(xmq);
 		return 1; // In primary bulb
 	}
+	
+	mp_clear(ls);
+	mp_clear(rs);
+	mp_init(ls);
+	mp_init(rs);
 
-	mp_add_r(ls, z_re, 1, 1);	// x+1
-	mp_mul(ls, ls, ls);			// (x+1)²
-	mp_add(ls, ls, z_im_sq);	// (x+1)² + y²
+	mp_add_si(ls, z_re, 1);		// ls = x+1
+	mp_mul(ls, ls, ls);			// ls = (x+1)²
+	mp_add(ls, ls, z_im_sq);	// ls = (x+1)² + y²
 
 	if (mp_cmp_r(ls, 1, 16) < 0)
 	{

@@ -37,8 +37,12 @@ namespace FractalRenderer
         {
             return new CalculationOptions(width, height, iteration_count)
             {
+                XOff = xOff,
                 XSkip = xSkip,
+                XMax = xMax,
+                YOff = yOff,
                 YSkip = ySkip,
+                YMax = yMax,
                 OrbitLength = orbit_length,
                 BulbChecking = BulbChecking,
                 MinRe = minRe,

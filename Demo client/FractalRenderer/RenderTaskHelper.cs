@@ -19,8 +19,7 @@ namespace FractalRenderer
 
             t1.Enqueue(options);
 
-            tasks += 4 - tasks % 4;
-            tasks /= 4;
+            tasks = (uint)Math.Pow(4, Math.Ceiling(Math.Log(tasks) / Math.Log(4)));
 
             while (tasks > 0)
             {

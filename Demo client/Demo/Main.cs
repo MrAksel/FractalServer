@@ -80,7 +80,7 @@ namespace FractalClient
             RenderOptions rp = new RenderOptions() { CanvasWidth = pictureBox1.Width, CanvasHeight = pictureBox1.Height };
 
             OrbitMap m = calc.Calculate(opt);
-            Bitmap b = c.DrawBitmap(m, rp, null);
+            Bitmap b = c.DrawBitmap(m, rp, opt, null);
 
             pictureBox1.Image = b;
         }
